@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncio
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from sqlalchemy.orm import Session
@@ -21,6 +22,10 @@ async def startup_event() -> None:
     Base.metadata.create_all(bind=engine)
     await bot_service.setup_webhook()
     scheduler.start()
+    
+    # Start polling in the background if enabled and no webhook is set
+    if settings.telegram_polling_enabled and not settings.telegram_webhook_url:
+        asyncio.create_task(bot_service.poll_updates(get_db))
 
 
 @app.on_event("shutdown")

@@ -19,7 +19,8 @@ class Settings(BaseSettings):
     telegram_bot_token: str = Field(alias="TELEGRAM_BOT_TOKEN")
     telegram_webhook_secret: str = Field(alias="TELEGRAM_WEBHOOK_SECRET")
     telegram_webhook_path: str = Field(default="/telegram/webhook", alias="TELEGRAM_WEBHOOK_PATH")
-    telegram_webhook_url: str = Field(alias="TELEGRAM_WEBHOOK_URL")
+    telegram_webhook_url: Optional[str] = Field(default=None, alias="TELEGRAM_WEBHOOK_URL")
+    telegram_polling_enabled: bool = Field(default=True, alias="TELEGRAM_POLLING_ENABLED")
 
     openai_api_key: str = Field(alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-4o-mini", alias="OPENAI_MODEL")
@@ -27,6 +28,8 @@ class Settings(BaseSettings):
     encryption_key: str = Field(alias="ENCRYPTION_KEY")
 
     groww_base_url: str = Field(default="https://api.groww.in", alias="GROWW_BASE_URL")
+    groww_api_key: Optional[str] = Field(default=None, alias="GROWW_API_KEY")
+    groww_api_secret: Optional[str] = Field(default=None, alias="GROWW_API_SECRET")
     groww_timeout_seconds: int = Field(default=20, alias="GROWW_TIMEOUT_SECONDS")
     groww_session_ttl_minutes: int = Field(default=60, alias="GROWW_SESSION_TTL_MINUTES")
 

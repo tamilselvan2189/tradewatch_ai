@@ -1,3 +1,4 @@
+import contextlib
 from collections.abc import Generator
 
 from sqlalchemy import create_engine
@@ -20,6 +21,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, clas
 Base = declarative_base()
 
 
+@contextlib.contextmanager
 def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:

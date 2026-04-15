@@ -13,36 +13,45 @@ class TradeWatchAgent:
         self.client = AsyncOpenAI(api_key=settings.openai_api_key)
 
     async def build_daily_message(self, analysis: PortfolioAnalysis) -> str:
-        gainer = f"{analysis.top_gainer.symbol} {analysis.top_gainer.day_change_pct:+.2f}%" if analysis.top_gainer else "NA"
-        loser = f"{analysis.top_loser.symbol} {analysis.top_loser.day_change_pct:+.2f}%" if analysis.top_loser else "NA"
-        risk = analysis.risk_insights[0] if analysis.risk_insights else "No major risks detected."
+        gainers_str = ", ".join([f"{h.symbol} ({h.day_change_pct:+.1f}%)" for h in analysis.top_3_gainers])
+        losers_str = ", ".join([f"{h.symbol} ({h.day_change_pct:+.1f}%)" for h in analysis.top_3_losers])
+        risk = analysis.risk_insights[0] if analysis.risk_insights else "Portfolio is balanced."
 
-        prompt = (
-            "Create a Telegram-ready portfolio insight message in at most 8 lines.\n"
-            "No financial advice. Only insights.\n"
-            "Use this structure exactly:\n"
-            "📊 TradeWatch AI\n"
-            "Portfolio: {portfolio_change}\n"
-            "Top gainer:\n"
-            "{gainer}\n"
-            "Top loser:\n"
-            "{loser}\n"
-            "Risk:\n"
-            "{risk}\n"
-            "Holdings: {count}\n\n"
-            f"portfolio_change={analysis.portfolio_change_pct:+.2f}%\n"
-            f"gainer={gainer}\n"
-            f"loser={loser}\n"
-            f"risk={risk}\n"
-            f"count={len(analysis.holdings)}"
+        system_prompt = (
+            "You are a Senior Portfolio Analyst for TradeWatch AI. "
+            "Your goal is to provide a concise, professional, and insightful summary of the daily performance for a retail investor. "
+            "Use a premium, institutional tone (like Bloomberg or Reuters). "
+            "Avoid generic filler words. Be sharp and analytical."
         )
-        response = await self.client.responses.create(
-            model=self.model,
-            input=[{"role": "user", "content": prompt}],
-            temperature=0.1,
+
+        user_prompt = (
+            "Analyze the following portfolio data and create a 6-8 line Telegram message.\n\n"
+            f"Overall Change: {analysis.portfolio_change_pct:+.2f}%\n"
+            f"Gainers today: {gainers_str or 'None'}\n"
+            f"Losers today: {losers_str or 'None'}\n"
+            f"Primary Risk: {risk}\n"
+            f"Total Holdings: {len(analysis.holdings)}\n\n"
+            "Requirements:\n"
+            "1. Start with '📊 TradeWatch AI | Daily Pulse'.\n"
+            "2. Provide a 2-sentence 'Market Pulse' interpretation of these moves.\n"
+            "3. Use professional formatting with emojis.\n"
+            "4. No financial advice (add a tiny 'Non-advisory' disclaimer at the bottom)."
         )
-        text = response.output_text.strip()
-        return text or self._fallback_daily_message(analysis)
+
+        try:
+            # Use the newer chat completions API style if available, 
+            # or keep wait for the client's current structure.
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.4,
+            )
+            return response.choices[0].message.content.strip()
+        except Exception:
+            return self._fallback_daily_message(analysis)
 
     async def build_drop_alert(self, analysis: PortfolioAnalysis, symbol: str, reason: str) -> str:
         holding = next((h for h in analysis.holdings if h.symbol == symbol), None)
@@ -50,28 +59,30 @@ class TradeWatchAgent:
             return ""
 
         impact = (holding.current_value / analysis.portfolio_value * 100) if analysis.portfolio_value else 0.0
-        prompt = (
-            "Generate short Telegram alert in max 7 lines with emojis.\n"
-            "No recommendations.\n"
+        
+        system_prompt = "You are a TradeWatch Risk Alert bot. Be urgent, professional, and clear."
+        user_prompt = (
+            f"Generate a sharp 5-line risk alert for {holding.symbol}.\n"
+            f"Drop: {holding.day_change_pct:.2f}%\n"
+            f"Portfolio Impact: {impact:.1f}%\n"
+            f"Market Context: {reason}\n\n"
             "Format:\n"
-            "⚠️ TradeWatch AI Alert\n"
-            "{symbol} dropped {percent}\n"
-            "Impact:\n"
-            "{impact}\n"
-            "Reason:\n"
-            "{reason}\n\n"
-            f"symbol={holding.symbol}\n"
-            f"percent={holding.day_change_pct:.2f}%\n"
-            f"impact={impact:.1f}% of portfolio\n"
-            f"reason={reason}"
+            "⚠️ RISK ALERT | TradeWatch AI\n"
+            "Briefly summarize the drop and its significance to the total portfolio."
         )
-        response = await self.client.responses.create(
-            model=self.model,
-            input=[{"role": "user", "content": prompt}],
-            temperature=0.1,
-        )
-        text = response.output_text.strip()
-        return text or self._fallback_drop_message(holding.symbol, holding.day_change_pct, impact, reason)
+        
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.3,
+            )
+            return response.choices[0].message.content.strip()
+        except Exception:
+            return self._fallback_drop_message(holding.symbol, holding.day_change_pct, impact, reason)
 
     def _fallback_daily_message(self, analysis: PortfolioAnalysis) -> str:
         gainer = f"{analysis.top_gainer.symbol} {analysis.top_gainer.day_change_pct:+.2f}%" if analysis.top_gainer else "NA"

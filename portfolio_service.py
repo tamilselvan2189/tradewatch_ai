@@ -32,6 +32,8 @@ class PortfolioAnalysis:
     portfolio_pnl: float
     top_gainer: HoldingView | None
     top_loser: HoldingView | None
+    top_3_gainers: list[HoldingView]
+    top_3_losers: list[HoldingView]
     risk_insights: list[str]
     drop_alerts: list[HoldingView]
 
@@ -40,13 +42,15 @@ class PortfolioService:
     def upsert_holdings_cache(self, db: Session, user: User, holdings: list[dict[str, Any]]) -> None:
         db.execute(delete(HoldingCache).where(HoldingCache.user_id == user.id))
         for raw in holdings:
+            # Official API uses 'trading_symbol', 'average_price'
+            # current_price and previous_close might be in a different payload or nested
             row = HoldingCache(
                 user_id=user.id,
-                symbol=raw["symbol"],
-                qty=float(raw["quantity"]),
-                avg_price=float(raw["avg_price"]),
-                current_price=float(raw["current_price"]),
-                previous_close=float(raw["previous_close"]),
+                symbol=raw.get("trading_symbol") or raw.get("symbol"),
+                qty=float(raw.get("quantity", 0)),
+                avg_price=float(raw.get("average_price") or raw.get("avg_price") or 0),
+                current_price=float(raw.get("current_price") or raw.get("day_close_price") or 0),
+                previous_close=float(raw.get("previous_close") or raw.get("last_day_close") or 0),
                 sector=raw.get("sector") or "Unknown",
                 updated_at=datetime.utcnow(),
             )
@@ -86,6 +90,10 @@ class PortfolioService:
         portfolio_pnl = sum(h.pnl for h in holdings)
         top_gainer = max(holdings, key=lambda h: h.day_change_pct, default=None)
         top_loser = min(holdings, key=lambda h: h.day_change_pct, default=None)
+        
+        sorted_holdings = sorted(holdings, key=lambda h: h.day_change_pct, reverse=True)
+        top_3_gainers = [h for h in sorted_holdings[:3] if h.day_change_pct > 0]
+        top_3_losers = [h for h in sorted_holdings[::-1][:3] if h.day_change_pct < 0]
 
         risk_insights = self._risk_insights(holdings, portfolio_value)
         drop_alerts = [h for h in holdings if h.day_change_pct <= -2.0]
@@ -98,9 +106,21 @@ class PortfolioService:
             portfolio_pnl=portfolio_pnl,
             top_gainer=top_gainer,
             top_loser=top_loser,
+            top_3_gainers=top_3_gainers,
+            top_3_losers=top_3_losers,
             risk_insights=risk_insights,
             drop_alerts=drop_alerts,
         )
+
+    def inject_mock_data(self, db: Session, user: User) -> None:
+        """Populate the cache with sample Indian stock data for demonstration."""
+        mock_holdings = [
+            {"trading_symbol": "RELIANCE", "quantity": 10, "average_price": 2450.0, "current_price": 2520.5, "previous_close": 2490.0, "sector": "Energy"},
+            {"trading_symbol": "TCS", "quantity": 5, "average_price": 3600.0, "current_price": 3580.0, "previous_close": 3610.0, "sector": "IT"},
+            {"trading_symbol": "ZOMATO", "quantity": 100, "average_price": 120.0, "current_price": 135.2, "previous_close": 115.0, "sector": "Tech/Consumer"},
+            {"trading_symbol": "HDFCBANK", "quantity": 20, "average_price": 1550.0, "current_price": 1420.0, "previous_close": 1565.0, "sector": "Banking"},
+        ]
+        self.upsert_holdings_cache(db, user, mock_holdings)
 
     def _risk_insights(self, holdings: list[HoldingView], portfolio_value: float) -> list[str]:
         if not holdings or portfolio_value <= 0:
