@@ -1,102 +1,71 @@
 # TradeWatch AI
 
-Production-ready multi-user Telegram portfolio monitoring backend built with FastAPI, MySQL, Groww OTP session integration, OpenAI-powered summaries, and APScheduler alerts.
+Production-ready multi-user Telegram portfolio monitoring backend. Now migrated to the **Official Groww Trading API** with enhanced AI insights, secure MySQL storage, and restricted network support (Long Polling).
 
-## Features
+## ✨ New Features
 
-- Multi-user Telegram bot command workflow: `/start`, `/login`, `/portfolio`, `/alerts`, `/logout`, `/help`
-- Groww OTP login flow (OTP only in memory; session token persisted per user)
-- Portfolio fetch + cache for each user independently
-- AI-generated daily and drop-alert Telegram messages
-- Scheduled daily updates (9:15 AM and 3:30 PM IST) + realtime drop checks
-- FastAPI webhook endpoint for Telegram
+- **Official Groww API**: Migrated from reverse-engineered endpoints to the stable, authorized Groww Trading API.
+- **Long Polling Mode**: Support for restricted networks (official laptops) without needing `ngrok` or public URLs.
+- **Daily AI Pulse**: Professional Bloomberg-style portfolio analysis using OpenAI GPT-4o.
+- **Demo Mode**: Test the entire bot flow with mock data using the `/demo` command.
+- **AES-128 Encryption**: All session tokens are encrypted at rest in MySQL using Fernet.
 
-## Project Structure
+## 🚀 Commands
 
-- `main.py` - FastAPI app and webhook endpoints
-- `telegram_bot.py` - Telegram command routing and message sending
-- `groww_login.py` - Groww session manager and holdings fetch
-- `portfolio_service.py` - holdings analysis and risk checks
-- `ai_agent.py` - OpenAI message generation
-- `scheduler.py` - APScheduler jobs
-- `crypto.py` - Fernet encryption/decryption for sensitive data
-- `db.py` - SQLAlchemy engine/session
-- `models.py` - MySQL ORM models
-- `config.py` - environment-driven settings
+- `/start` - Welcome and setup instructions.
+- `/login` - Refresh your daily Groww session (requires manual approval on Groww website).
+- `/portfolio` - Fetch and analyze your real equity holdings.
+- `/demo` - **[TESTING]** Inject mock data to see a sample AI analysis.
+- `/alerts` - Check for any significant drops in your holdings.
+- `/logout` - Clear your session from the database.
+- `/help` - List all available commands.
 
-## Environment Variables
+## 📁 Project Structure
 
-Copy `.env.example` to `.env` and fill values.
+- `main.py` - FastAPI app and background polling task management.
+- `telegram_bot.py` - Command routing, **Long Polling loop**, and message logic.
+- `groww_login.py` - Official API session generation & holdings fetch.
+- `portfolio_service.py` - High-speed holdings analysis and mock data injection.
+- `ai_agent.py` - Senior Portfolio Analyst (OpenAI) integration.
+- `verify_ai.py` - **[NEW]** Standalone utility to verify AI commentary logic.
+- `crypto.py` - Fernet encryption/decryption modules.
+- `config.py` - Pydantic-driven environment settings.
 
-Required:
+## 🛠 Setup & Run
 
-- `DATABASE_URL`
-- `TELEGRAM_BOT_TOKEN`
-- `TELEGRAM_WEBHOOK_SECRET`
-- `TELEGRAM_WEBHOOK_URL`
-- `OPENAI_API_KEY`
-- `ENCRYPTION_KEY` — Fernet key for encrypting session tokens at rest
+### 1. Environment Variables
+Copy `.env.example` to `.env` and configure:
+- `GROWW_API_KEY` & `GROWW_API_SECRET` (From Groww Cloud).
+- `TELEGRAM_BOT_TOKEN` (@BotFather).
+- `OPENAI_API_KEY` (For AI insights).
+- `DATABASE_URL` (MySQL).
+- `ENCRYPTION_KEY` (AES-128 key).
+- `TELEGRAM_POLLING_ENABLED=True` (Set to True for restricted laptops).
 
-Generate an encryption key:
-
+### 2. Launch
 ```bash
-python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# Install dependencies
+pip install -r requirements.txt
+
+# Start the server (includes background polling)
+uvicorn main:app --host 0.0.0.0 --port 8007 --reload
 ```
 
-## Database Schema
+### 3. Verify AI Agent
+Run the standalone verification script to see a sample AI output:
+```bash
+python verify_ai.py
+```
 
-`users`
+## 🔒 Security & Workflow
+- **Daily Approval**: You must manually click **"Approve"** on your [Groww API Keys Page](https://groww.in/trade-api/api-keys) once every 24 hours.
+- **Encryption**: Session tokens are encrypted before hitting the database. Plain-text tokens are never persisted.
+- **Network Agnostic**: Using Long Polling ensures the bot works even behind corporate firewalls.
 
-- `id`
-- `telegram_id`
-- `mobile`
-- `groww_session`
-- `session_expires_at`
-- `created_at`
+---
 
-`holdings_cache`
-
-- `user_id`
-- `symbol`
-- `qty`
-- `avg_price`
-- `current_price`
-- `previous_close`
-- `sector`
-- `updated_at`
-
-## Local Run
-
-1. Install dependencies:
-   - `pip install -r requirements.txt`
-2. Set env:
-   - `cp .env.example .env`
-3. Start server:
-   - `uvicorn main:app --reload --host 0.0.0.0 --port 8000`
-
-## Docker Run
-
-1. Build:
-   - `docker build -t tradewatch-ai .`
-2. Run:
-   - `docker run --env-file .env -p 8000:8000 tradewatch-ai`
-
-## Telegram Setup
-
-- Configure Telegram bot and point webhook to:
-  - `https://your-domain.com/telegram/webhook`
-- Use the same secret token in Telegram webhook and `TELEGRAM_WEBHOOK_SECRET`.
-
-## Security Notes
-
-- Password and OTP are never stored.
-- Groww session tokens are **encrypted at rest** using Fernet (AES-128-CBC) before being saved to MySQL.
-- The `ENCRYPTION_KEY` env variable is required — without it, tokens cannot be encrypted or decrypted.
-- Only encrypted session tokens are persisted; plain-text tokens never touch the database.
-- Each Telegram user is mapped to one independent Groww session.
-
-## Production Notes
-
-- Replace Groww endpoint paths in `groww_login.py` with current API paths from your integration.
-- Prefer Alembic migrations instead of `create_all` for strict production change control.
-- Add Redis queue/celery worker if scheduler load increases.
+## 🏗 Requirements
+- Python 3.10+
+- MySQL 8.0+
+- OpenAI API Access
+- Groww Trading API Credentials
