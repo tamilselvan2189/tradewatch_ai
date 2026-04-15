@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     openai_api_key: str = Field(alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-4o-mini", alias="OPENAI_MODEL")
 
+    encryption_key: str = Field(alias="ENCRYPTION_KEY")
+
     groww_base_url: str = Field(default="https://api.groww.in", alias="GROWW_BASE_URL")
     groww_timeout_seconds: int = Field(default=20, alias="GROWW_TIMEOUT_SECONDS")
     groww_session_ttl_minutes: int = Field(default=60, alias="GROWW_SESSION_TTL_MINUTES")

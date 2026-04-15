@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from ai_agent import TradeWatchAgent
 from config import get_settings
+from crypto import encrypt
 from groww_login import GrowwSessionManager
 from models import User
 from portfolio_service import PortfolioService
@@ -120,7 +121,7 @@ class TelegramBotService:
             session = await self.groww.verify_otp_and_create_session(mobile, otp)
             await self.pending_login_store.clear_mobile(user.telegram_id)
             user.mobile = mobile
-            user.groww_session = session.token
+            user.groww_session = encrypt(session.token)
             user.session_expires_at = session.expires_at
             db.add(user)
             db.commit()
