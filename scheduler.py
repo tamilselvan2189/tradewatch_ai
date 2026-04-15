@@ -18,7 +18,7 @@ class TradeWatchScheduler:
     def start(self) -> None:
         self.scheduler.add_job(self.daily_open_update, "cron", hour=9, minute=15, id="daily_open_update", replace_existing=True)
         self.scheduler.add_job(self.daily_close_update, "cron", hour=15, minute=30, id="daily_close_update", replace_existing=True)
-        self.scheduler.add_job(self.realtime_drop_check, "interval", minutes=5, id="realtime_drop_check", replace_existing=True)
+        self.scheduler.add_job(self.realtime_drop_check, "interval", minutes=30, id="realtime_drop_check", replace_existing=True)
         self.scheduler.start()
 
     def shutdown(self) -> None:

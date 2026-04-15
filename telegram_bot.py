@@ -2,7 +2,7 @@ from __future__ import annotations
 import asyncio
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
@@ -160,21 +160,43 @@ class TelegramBotService:
         await self.send_message(chat_id, message)
 
     async def _handle_alerts(self, db: Session, user: User, chat_id: int) -> None:
+        from models import AlertLog
+        
         holdings_rows = self.portfolio_service.load_cached_holdings(db, user)
         if not holdings_rows:
             await self.send_message(chat_id, "No cached holdings. Run /portfolio first.")
             return
+        
         analysis = self.portfolio_service.analyze(holdings_rows)
         if analysis.portfolio_change_pct <= -1.0:
             await self.send_message(chat_id, f"⚠️ TradeWatch AI Alert\nPortfolio dropped {analysis.portfolio_change_pct:.2f}% today.")
-            return
+            # We don't log portfolio-wide alerts yet, only individual drops
+        
         if not analysis.drop_alerts:
-            await self.send_message(chat_id, "No drop alerts currently.")
+            # Silently return if no drops detected during scheduler run
+            # but if triggered manually, maybe send a message
             return
+
+        yesterday = datetime.utcnow() - timedelta(hours=24)
+        
         for dropped in analysis.drop_alerts[:3]:
+            # Check for recent alert
+            existing_alert = db.query(AlertLog).filter(
+                AlertLog.user_id == user.id,
+                AlertLog.symbol == dropped.symbol,
+                AlertLog.sent_at > yesterday
+            ).first()
+            
+            if existing_alert:
+                continue
+
             msg = await self.ai_agent.build_drop_alert(analysis, dropped.symbol, "Price action and broad market weakness")
             if msg:
                 await self.send_message(chat_id, msg)
+                # Log the alert
+                new_log = AlertLog(user_id=user.id, symbol=dropped.symbol)
+                db.add(new_log)
+                db.commit()
 
     async def _handle_logout(self, db: Session, user: User, chat_id: int) -> None:
         user.groww_session = None

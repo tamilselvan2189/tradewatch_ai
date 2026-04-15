@@ -38,3 +38,14 @@ class HoldingCache(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(), default=datetime.utcnow, nullable=False)
 
     user: Mapped[User] = relationship(back_populates="holdings")
+
+
+class AlertLog(Base):
+    __tablename__ = "alert_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    symbol: Mapped[str] = mapped_column(String(30), nullable=False)
+    alert_type: Mapped[str] = mapped_column(String(20), default="DROP")
+    sent_at: Mapped[datetime] = mapped_column(DateTime(), default=datetime.utcnow, nullable=False)
+

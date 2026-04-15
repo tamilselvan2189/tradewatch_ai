@@ -5,6 +5,7 @@ Production-ready multi-user Telegram portfolio monitoring backend. Now migrated 
 ## ✨ New Features
 
 - **Official Groww API**: Migrated from reverse-engineered endpoints to the stable, authorized Groww Trading API.
+- **Smart Alerts**: 24-hour cooldown logic ensuring you only get one notification per stock drop per day.
 - **Long Polling Mode**: Support for restricted networks (official laptops) without needing `ngrok` or public URLs.
 - **Daily AI Pulse**: Professional Bloomberg-style portfolio analysis using OpenAI GPT-4o.
 - **Demo Mode**: Test the entire bot flow with mock data using the `/demo` command.
