@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+PyMySQL
+cryptography
+pydantic-settings
+httpx
+openai
+apscheduler
+python-dotenv
+redis
