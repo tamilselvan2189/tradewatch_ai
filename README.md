@@ -19,6 +19,7 @@ Production-ready multi-user Telegram portfolio monitoring backend built with Fas
 - `portfolio_service.py` - holdings analysis and risk checks
 - `ai_agent.py` - OpenAI message generation
 - `scheduler.py` - APScheduler jobs
+- `crypto.py` - Fernet encryption/decryption for sensitive data
 - `db.py` - SQLAlchemy engine/session
 - `models.py` - MySQL ORM models
 - `config.py` - environment-driven settings
@@ -34,6 +35,13 @@ Required:
 - `TELEGRAM_WEBHOOK_SECRET`
 - `TELEGRAM_WEBHOOK_URL`
 - `OPENAI_API_KEY`
+- `ENCRYPTION_KEY` — Fernet key for encrypting session tokens at rest
+
+Generate an encryption key:
+
+```bash
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
 
 ## Database Schema
 
@@ -82,7 +90,9 @@ Required:
 ## Security Notes
 
 - Password and OTP are never stored.
-- Only session token/cookies are persisted.
+- Groww session tokens are **encrypted at rest** using Fernet (AES-128-CBC) before being saved to MySQL.
+- The `ENCRYPTION_KEY` env variable is required — without it, tokens cannot be encrypted or decrypted.
+- Only encrypted session tokens are persisted; plain-text tokens never touch the database.
 - Each Telegram user is mapped to one independent Groww session.
 
 ## Production Notes
